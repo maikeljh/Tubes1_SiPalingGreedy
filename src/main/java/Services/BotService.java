@@ -33,21 +33,33 @@ public class BotService {
     }
 
     public void computeNextPlayerAction(PlayerAction playerAction) {
+        // Initialize action and heading
         playerAction.action = PlayerActions.FORWARD;
         playerAction.heading = new Random().nextInt(360);
 
+        // While game objects not empty
         if (!this.gameState.getGameObjects().isEmpty()) {
+            // Getting food list
             var foodList = this.gameState.getGameObjects()
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD || item.getGameObjectType() == ObjectTypes.SUPERFOOD)
                     .sorted(Comparator
                         .comparing(item -> getDistanceBetween(this.bot, item)))
                     .collect(Collectors.toList());
+            // Getting player list
             var playerList = this.gameState.getPlayerGameObjects()
                     .stream()
                     .filter(enemy -> enemy.id != this.bot.id)
                     .sorted(Comparator
                         .comparing(enemy -> getDistanceBetween(this.bot, enemy)))
                     .collect(Collectors.toList());
+            // Getting enemy list to shoot
+            var musuhList = this.gameState.getPlayerGameObjects()
+                    .stream()
+                    .filter(enemy -> enemy.id != this.bot.id)
+                    .sorted(Comparator
+                        .comparing(enemy -> getDistanceBetween(this.bot, enemy)))
+                    .collect(Collectors.toList());
+            // Getting obstacle list to avoid
             var obstacleList = this.gameState.getGameObjects()
                     .stream()
                     .filter(item -> item.getGameObjectType() == ObjectTypes.GAS_CLOUD || item.getGameObjectType() == ObjectTypes.ASTEROID_FIELD)
@@ -55,27 +67,72 @@ public class BotService {
                         .comparing(obstacle -> getDistanceBetween(this.bot, obstacle)))
                     .collect(Collectors.toList());
 
+            // Choosing best area
             var chosenArea = scanArea(foodList, playerList, obstacleList);
             foodList = chosenArea.get(0);
             playerList = chosenArea.get(1);
             obstacleList = chosenArea.get(2);
 
-            /*if(obstacleList.size() > 0 && getDistanceBetween(this.bot, obstacleList.get(0)) < obstacleList.get(0).size + this.bot.size){
-                if(this.bot.currentHeading - getHeadingBetween(obstacleList.get(0)) < 90){
-                    playerAction.heading = this.bot.currentHeading + (90 - getHeadingBetween(obstacleList.get(0)));
+            // If there is no food, enemy, and obstacle nearby
+            if(foodList.size() == 0 && playerList.size() == 0 && obstacleList.size() == 0){
+                if(musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
+                    playerAction.heading = getHeadingBetween(musuhList.get(0));
+                    var nabrak = false;
+                    for(int x = 0; x < foodList.size(); x++){
+                        if(playerAction.heading == getHeadingBetween(foodList.get(x))){
+                            nabrak = true;
+                        }
+                    }
+                    if(!nabrak){
+                        System.out.println("Nembak gan");
+                        playerAction.action = PlayerActions.FIRETORPEDOES;
+                    } else {
+                        System.out.println("Ke tengah bang");
+                        playerAction.heading = getHeadingBetween(this.gameState.getWorld());
+                    }
                 }
-            }*/ if(foodList.size() == 0 && playerList.size() == 0 && obstacleList.size() == 0){
-                playerAction.heading = getHeadingBetween(this.gameState.getWorld());
-            } 
-            else if(playerList.size() > 0 && playerList.get(0).size < this.bot.size){
+            } else if(playerList.size() > 0 && playerList.get(0).size < this.bot.size){
+                // If there is a smaller enemy nearby
                 playerAction.heading = getHeadingBetween(playerList.get(0));
-            } else if(foodList.size() > 0){
-                /*if(getDistanceBetween(foodList.get(0), this.bot) == getDistanceBetween(foodList.get(1), this.bot)){
-                    playerAction.heading = getHeadingBetween(foodList.get(2));
+                var nabrak = false;
+                for(int x = 0; x < foodList.size(); x++){
+                    if(playerAction.heading == getHeadingBetween(foodList.get(x))){
+                        nabrak = true;
+                    }
+                }
+                // If we can shoot the enemy without colliding with another game object
+                if(!nabrak){
+                    System.out.println("Nembak gan");
+                    playerAction.action = PlayerActions.FIRETORPEDOES;
                 } else {
+                    // Chase enemy
+                    System.out.println("Kejer musuh gan");
+                }
+            } else if(foodList.size() > 0){
+                // If there is foods nearby
+                if(musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
+                    // If we can shoot enemy nearby
+                    playerAction.heading = getHeadingBetween(musuhList.get(0));
+                    var nabrak = false;
+                    for(int x = 0; x < foodList.size(); x++){
+                        if(playerAction.heading == getHeadingBetween(foodList.get(x))){
+                            nabrak = true;
+                        }
+                    }
+                    if(!nabrak){
+                        // If torpedo will not collide
+                        System.out.println("Nembak gan");
+                        playerAction.action = PlayerActions.FIRETORPEDOES;
+                    } else {
+                        // Eat food if it collides
+                        System.out.println("Kejer makanan gan");
+                        playerAction.heading = getHeadingBetween(foodList.get(0));
+                    }
+                } else {
+                    // Eat food
+                    System.out.println("Kejer makanan gan");
                     playerAction.heading = getHeadingBetween(foodList.get(0));
-                }*/
-                playerAction.heading = getHeadingBetween(foodList.get(0));
+                }
             }
         }
         this.playerAction = playerAction;
@@ -101,32 +158,31 @@ public class BotService {
             while (idx < foodList.size() && getDistanceBetween(foodList.get(idx), this.bot) <= maxDistance){
                 var head = getHeadingBetween(foodList.get(idx));
                 if(head >= headingFirst && head <= headingLast){
-                    if(foodList.get(idx).getGameObjectType() == ObjectTypes.FOOD){
-                        score += (3.0 / getDistanceBetween(this.bot, foodList.get(idx)));
-                    } else {
-                        score += (6.0 / getDistanceBetween(this.bot, foodList.get(idx)));
+                    if(this.gameState.getWorld().radius - getDistanceBetween(foodList.get(idx), this.gameState.getWorld()) >= this.bot.size){
+                        if(foodList.get(idx).getGameObjectType() == ObjectTypes.FOOD){
+                            score += (3.0 / getDistanceBetween(this.bot, foodList.get(idx))); //+ (3.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
+                        } else {
+                        score += (6.0 / getDistanceBetween(this.bot, foodList.get(idx))); // + (6.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
+                        }
+                        tempFoodList.add(foodList.get(idx));
                     }
-                    tempFoodList.add(foodList.get(idx));
                 }
                 idx++;
             }
             // Iterate Player List
             idx = 0;
             var chooseToSkip = false;
-            while (idx < playerList.size() && getDistanceBetween(playerList.get(idx), this.bot) <= maxDistance){
+            while (idx < playerList.size() && getDistanceBetween(playerList.get(idx), this.bot) - playerList.get(idx).size - this.bot.size <= maxDistance){
                 var head = getHeadingBetween(playerList.get(idx));
                 double theta = (double) playerList.get(idx).size / getDistanceBetween(playerList.get(idx), this.bot);
                 theta = toDegrees(Math.asin(theta));
-                var headFirstEnemy = head - theta;
-                var headLastEnemy = head + theta;
+                var headFirstEnemy = (head - theta) % 360;
+                var headLastEnemy = (head + theta) % 360;
                 if((headingFirst >= headFirstEnemy && headingFirst <= headLastEnemy) || (headingLast >= headFirstEnemy && headingLast <= headLastEnemy) || (head >= headingFirst && head <= headingLast)){
                     if((double) playerList.get(idx).size * 6.0 / 5.0 <= this.bot.size){
                         score += ((double) playerList.get(idx).size / getDistanceBetween(this.bot, playerList.get(idx)));
-                        System.out.print("Score musuh : ");
-                        System.out.println(((double) playerList.get(idx).size / getDistanceBetween(this.bot, playerList.get(idx))));
                         tempPlayerList.add(playerList.get(idx));
                     } else {
-                        System.out.print("SKIP Kegedean lol");
                         chooseToSkip = true;
                         break;
                     }
@@ -165,9 +221,9 @@ public class BotService {
                 fixObstacleList = tempObstacleList;
             }
         }
-        System.out.print(this.gameState.getWorld().currentTick);
+        /*System.out.print(this.gameState.getWorld().currentTick);
         System.out.print(" : ");
-        System.out.println(maxScore);
+        System.out.println(maxScore);*/
         return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList);
     }
 
@@ -188,6 +244,12 @@ public class BotService {
     private double getDistanceBetween(GameObject object1, GameObject object2) {
         var triangleX = Math.abs(object1.getPosition().x - object2.getPosition().x);
         var triangleY = Math.abs(object1.getPosition().y - object2.getPosition().y);
+        return Math.sqrt(triangleX * triangleX + triangleY * triangleY);
+    }
+
+    private double getDistanceBetween(GameObject object1, World world) {
+        var triangleX = Math.abs(object1.getPosition().x - world.getCenterPoint().x);
+        var triangleY = Math.abs(object1.getPosition().y - world.getCenterPoint().y);
         return Math.sqrt(triangleX * triangleX + triangleY * triangleY);
     }
 
