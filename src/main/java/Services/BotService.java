@@ -10,10 +10,20 @@ public class BotService {
     private GameObject bot;
     private PlayerAction playerAction;
     private GameState gameState;
+    private boolean shootTorpedo;
 
     public BotService() {
         this.playerAction = new PlayerAction();
         this.gameState = new GameState();
+        this.shootTorpedo = false;
+    }
+
+    public void setShootTorpedo(boolean shoot){
+        this.shootTorpedo = shoot;
+    }
+
+    public boolean getShootTorpedo(){
+        return this.shootTorpedo;
     }
 
     public GameObject getBot() {
@@ -36,12 +46,19 @@ public class BotService {
         // Initialize action and heading
         playerAction.action = PlayerActions.FORWARD;
         playerAction.heading = new Random().nextInt(360);
-
         // While game objects not empty
         if (!this.gameState.getGameObjects().isEmpty()) {
             // Getting food list
             var foodList = this.gameState.getGameObjects()
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD || item.getGameObjectType() == ObjectTypes.SUPERFOOD)
+                    .sorted(Comparator
+                        .comparing(item -> getDistanceBetween(this.bot, item)))
+                    .collect(Collectors.toList());
+            // Getting food list
+            var foodNotNearEdgeList = this.gameState.getGameObjects()
+                    .stream()
+                    .filter(item -> (item.getGameObjectType() == ObjectTypes.FOOD || item.getGameObjectType() == ObjectTypes.SUPERFOOD) && 
+                    (this.gameState.getWorld().radius - getDistanceBetween(item, this.gameState.getWorld()) >= 1.2 * (double) this.bot.size))
                     .sorted(Comparator
                         .comparing(item -> getDistanceBetween(this.bot, item)))
                     .collect(Collectors.toList());
@@ -73,9 +90,9 @@ public class BotService {
             playerList = chosenArea.get(1);
             obstacleList = chosenArea.get(2);
 
-            // If there is no food, enemy, and obstacle nearby
-            if(foodList.size() == 0 && playerList.size() == 0 && obstacleList.size() == 0){
-                if(musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
+            // If there is no food and enemy nearby
+            if(foodList.size() == 0 && playerList.size() == 0){
+                if(!this.shootTorpedo && musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
                     playerAction.heading = getHeadingBetween(musuhList.get(0));
                     var nabrak = false;
                     for(int x = 0; x < foodList.size(); x++){
@@ -86,10 +103,21 @@ public class BotService {
                     if(!nabrak){
                         System.out.println("Nembak gan");
                         playerAction.action = PlayerActions.FIRETORPEDOES;
+                        this.shootTorpedo = true;
+                    } else {
+                        System.out.println("Ke tengah bang");
+                        playerAction.heading = getHeadingBetween(this.gameState.getWorld());
+                        this.shootTorpedo = false;
+                    }
+                } else {
+                    if(foodNotNearEdgeList.size() > 0){
+                        playerAction.heading = getHeadingBetween(foodNotNearEdgeList.get(0));
+                        System.out.println("Cari makan yang gak di ujung");
                     } else {
                         System.out.println("Ke tengah bang");
                         playerAction.heading = getHeadingBetween(this.gameState.getWorld());
                     }
+                    this.shootTorpedo = false;
                 }
             } else if(playerList.size() > 0 && playerList.get(0).size < this.bot.size){
                 // If there is a smaller enemy nearby
@@ -101,16 +129,18 @@ public class BotService {
                     }
                 }
                 // If we can shoot the enemy without colliding with another game object
-                if(!nabrak){
+                if(!this.shootTorpedo && !nabrak){
                     System.out.println("Nembak gan");
                     playerAction.action = PlayerActions.FIRETORPEDOES;
+                    this.shootTorpedo = true;
                 } else {
                     // Chase enemy
                     System.out.println("Kejer musuh gan");
+                    this.shootTorpedo = false;
                 }
             } else if(foodList.size() > 0){
                 // If there is foods nearby
-                if(musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
+                if(!this.shootTorpedo && musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
                     // If we can shoot enemy nearby
                     playerAction.heading = getHeadingBetween(musuhList.get(0));
                     var nabrak = false;
@@ -123,15 +153,18 @@ public class BotService {
                         // If torpedo will not collide
                         System.out.println("Nembak gan");
                         playerAction.action = PlayerActions.FIRETORPEDOES;
+                        this.shootTorpedo = true;
                     } else {
                         // Eat food if it collides
                         System.out.println("Kejer makanan gan");
                         playerAction.heading = getHeadingBetween(foodList.get(0));
+                        this.shootTorpedo = false;
                     }
                 } else {
                     // Eat food
                     System.out.println("Kejer makanan gan");
                     playerAction.heading = getHeadingBetween(foodList.get(0));
+                    this.shootTorpedo = false;
                 }
             }
         }
@@ -158,11 +191,11 @@ public class BotService {
             while (idx < foodList.size() && getDistanceBetween(foodList.get(idx), this.bot) <= maxDistance){
                 var head = getHeadingBetween(foodList.get(idx));
                 if(head >= headingFirst && head <= headingLast){
-                    if(this.gameState.getWorld().radius - getDistanceBetween(foodList.get(idx), this.gameState.getWorld()) >= this.bot.size){
+                    if(this.gameState.getWorld().radius - getDistanceBetween(foodList.get(idx), this.gameState.getWorld()) >= sizeUntukEdge(this.gameState.getWorld().radius, this.bot.size)){
                         if(foodList.get(idx).getGameObjectType() == ObjectTypes.FOOD){
-                            score += (3.0 / getDistanceBetween(this.bot, foodList.get(idx))); //+ (3.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
+                            score += (3.0 / getDistanceBetween(this.bot, foodList.get(idx))) + (3.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
                         } else {
-                        score += (6.0 / getDistanceBetween(this.bot, foodList.get(idx))); // + (6.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
+                        score += (6.0 / getDistanceBetween(this.bot, foodList.get(idx))) + (6.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
                         }
                         tempFoodList.add(foodList.get(idx));
                     }
@@ -227,6 +260,18 @@ public class BotService {
         return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList);
     }
 
+    public double sizeUntukEdge (int radius, int size) {
+        if (size <= 0.25 * radius) {
+            return 1.7 * (double) size;
+        }
+        else if (size > 0.25 * radius && size <= 0.5 * radius) {
+            return 1.4 * (double) size;
+        }
+        else {
+            return 1.2 * (double) size;
+        }
+    }
+
     public GameState getGameState() {
         return this.gameState;
     }
@@ -268,6 +313,5 @@ public class BotService {
     private int toDegrees(double v) {
         return (int) (v * (180 / Math.PI));
     }
-
 
 }

@@ -23,7 +23,7 @@ public class GameObject {
   }
 
   public UUID getId() {
-    return id;
+    return this.id;
   }
 
   public void setId(UUID id) {
@@ -31,7 +31,7 @@ public class GameObject {
   }
 
   public int getSize() {
-    return size;
+    return this.size;
   }
 
   public void setSize(int size) {
@@ -39,7 +39,7 @@ public class GameObject {
   }
 
   public int getSpeed() {
-    return speed;
+    return this.speed;
   }
 
   public void setSpeed(int speed) {
@@ -47,7 +47,7 @@ public class GameObject {
   }
 
   public Position getPosition() {
-    return position;
+    return this.position;
   }
 
   public void setPosition(Position position) {
@@ -55,7 +55,7 @@ public class GameObject {
   }
 
   public ObjectTypes getGameObjectType() {
-    return gameObjectType;
+    return this.gameObjectType;
   }
 
   public void setGameObjectType(ObjectTypes gameObjectType) {
