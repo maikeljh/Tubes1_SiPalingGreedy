@@ -11,11 +11,15 @@ public class BotService {
     private PlayerAction playerAction;
     private GameState gameState;
     private boolean shootTorpedo;
+    private int headingTeleporter;
+    private int shootTeleporter;
 
     public BotService() {
         this.playerAction = new PlayerAction();
         this.gameState = new GameState();
         this.shootTorpedo = false;
+        this.headingTeleporter = -999;
+        this.shootTeleporter = 0;
     }
 
     public void setShootTorpedo(boolean shoot){
@@ -76,6 +80,11 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(enemy -> getDistanceBetween(this.bot, enemy)))
                     .collect(Collectors.toList());
+            // Getting teleport list to avoid
+            var teleportList = this.gameState.getGameObjects()
+                    .stream()
+                    .filter(item -> item.getGameObjectType() == ObjectTypes.TELEPORTER)
+                    .collect(Collectors.toList());
             // Getting obstacle list to avoid
             var obstacleList = this.gameState.getGameObjects()
                     .stream()
@@ -90,8 +99,27 @@ public class BotService {
             playerList = chosenArea.get(1);
             obstacleList = chosenArea.get(2);
 
-            // If there is no food and enemy nearby
-            if(foodList.size() == 0 && playerList.size() == 0){
+            // Checking available teleport
+            GameObject myTeleporter = null;
+            if(checkOwnerTeleporter(teleportList)){
+                myTeleporter = getTeleporter(teleportList);
+            }
+            
+            // If we can teleport now
+            if(myTeleporter != null && musuhList.size() > 0 && doTeleport(myTeleporter, musuhList)){
+                playerAction.action = PlayerActions.TELEPORT;
+                this.headingTeleporter = -999;
+                this.shootTeleporter = 0;
+                System.out.println("Nguing");
+            } else if(this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
+                var head = getHeadingBetween(musuhList.get(0));
+                playerAction.heading = head;
+                this.headingTeleporter = head;
+                playerAction.action = PlayerActions.FIRETELEPORT;
+                this.shootTeleporter = 2;
+                System.out.println("Tembak Teleport Gan");
+            } else if(foodList.size() == 0 && playerList.size() == 0){
+                // If there is no food and enemy nearby
                 if(!this.shootTorpedo && musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
                     playerAction.heading = getHeadingBetween(musuhList.get(0));
                     var nabrak = false;
@@ -100,7 +128,7 @@ public class BotService {
                             nabrak = true;
                         }
                     }
-                    if(!nabrak){
+                    if(!nabrak && musuhList.get(0).size >= 10){
                         System.out.println("Nembak gan");
                         playerAction.action = PlayerActions.FIRETORPEDOES;
                         this.shootTorpedo = true;
@@ -128,8 +156,8 @@ public class BotService {
                         nabrak = true;
                     }
                 }
-                // If we can shoot the enemy without colliding with another game object
-                if(!this.shootTorpedo && !nabrak){
+                // If we can shoot the enemy without colliding with another game object and enemy size >= 10
+                if(!this.shootTorpedo && !nabrak && playerList.get(0).size >= 10){
                     System.out.println("Nembak gan");
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                     this.shootTorpedo = true;
@@ -149,8 +177,8 @@ public class BotService {
                             nabrak = true;
                         }
                     }
-                    if(!nabrak){
-                        // If torpedo will not collide
+                    if(!nabrak && musuhList.get(0).size >= 10){
+                        // If torpedo will not collide and enemy size >= 10
                         System.out.println("Nembak gan");
                         playerAction.action = PlayerActions.FIRETORPEDOES;
                         this.shootTorpedo = true;
@@ -167,7 +195,12 @@ public class BotService {
                     this.shootTorpedo = false;
                 }
             }
+
+            if(this.shootTeleporter > 0){
+                this.shootTeleporter--;
+            }
         }
+
         this.playerAction = playerAction;
     }
 
@@ -258,6 +291,41 @@ public class BotService {
         System.out.print(" : ");
         System.out.println(maxScore);*/
         return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList);
+    }
+
+    public boolean checkOwnerTeleporter(List<GameObject> teleportList){
+        for(int i = 0; i < teleportList.size(); i++){
+            if(Math.abs(teleportList.get(i).currentHeading - this.headingTeleporter) <= 3){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public GameObject getTeleporter(List<GameObject> teleportList){
+        for(int i = 0; i < teleportList.size(); i++){
+            if(Math.abs(teleportList.get(i).currentHeading - this.headingTeleporter) <= 3){
+                return teleportList.get(i);
+            }
+        }
+        return null;
+    }
+
+    public boolean doTeleport(GameObject myTeleport, List<GameObject> musuhList){
+        var minDistance = getDistanceBetween(myTeleport, musuhList.get(0));
+        GameObject musuhIncar = musuhList.get(0);
+        for(int i = 1; i < musuhList.size(); i++){
+            var jarak = getDistanceBetween(myTeleport, musuhList.get(i));
+            if(jarak < minDistance){
+                minDistance = jarak;
+                musuhIncar = musuhList.get(i);
+            }
+        }
+        if(minDistance - this.bot.size - musuhIncar.size < 100 && musuhIncar.size < this.bot.size){
+            return true;
+        } else {
+            return false;
+        }
     }
 
     public double sizeUntukEdge (int radius, int size) {
