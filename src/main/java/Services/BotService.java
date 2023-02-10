@@ -51,11 +51,16 @@ public class BotService {
     }
 
     public void computeNextPlayerAction(PlayerAction playerAction) {
+        // Output Current Tick
+        System.out.print(this.gameState.getWorld().getCurrentTick());
+        System.out.print(": ");
         // Initialize action and heading
         playerAction.action = PlayerActions.FORWARD;
         playerAction.heading = new Random().nextInt(360);
         // While game objects not empty
         if (!this.gameState.getGameObjects().isEmpty()) {
+            // Getting object list
+            var objectList = this.gameState.getGameObjects();
             // Getting food list
             var foodList = this.gameState.getGameObjects()
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD || item.getGameObjectType() == ObjectTypes.SUPERFOOD)
@@ -145,8 +150,8 @@ public class BotService {
                 if(!this.shootTorpedo && musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
                     playerAction.heading = getHeadingBetween(musuhList.get(0));
                     var nabrak = false;
-                    for(int x = 0; x < foodList.size(); x++){
-                        if(playerAction.heading == getHeadingBetween(foodList.get(x))){
+                    for(int x = 0; x < objectList.size(); x++){
+                        if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10){
                             nabrak = true;
                         }
                     }
@@ -173,13 +178,13 @@ public class BotService {
                 // If there is a smaller enemy nearby
                 playerAction.heading = getHeadingBetween(playerList.get(0));
                 var nabrak = false;
-                for(int x = 0; x < foodList.size(); x++){
-                    if(playerAction.heading == getHeadingBetween(foodList.get(x))){
+                for(int x = 0; x < objectList.size(); x++){
+                    if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10){
                         nabrak = true;
                     }
                 }
-                // If we can shoot the enemy without colliding with another game object and enemy size >= 10
-                if(!this.shootTorpedo && !nabrak && playerList.get(0).size >= 10){
+                // If we can shoot the enemy without colliding with another game object and enemy size >= 15
+                if(!this.shootTorpedo && !nabrak && playerList.get(0).size >= 15){
                     System.out.println("Nembak gan");
                     playerAction.action = PlayerActions.FIRETORPEDOES;
                     this.shootTorpedo = true;
@@ -197,10 +202,11 @@ public class BotService {
                     for(int x = 0; x < foodList.size(); x++){
                         if(playerAction.heading == getHeadingBetween(foodList.get(x))){
                             nabrak = true;
+                            break;
                         }
                     }
-                    if(!nabrak && musuhList.get(0).size >= 10){
-                        // If torpedo will not collide and enemy size >= 10
+                    if(!nabrak && (musuhList.get(0).size >= 20 || (musuhList.get(0).size >= 10 && getDistanceBetween(this.bot, musuhList.get(0)) < 100))){
+                        // If torpedo will not collide and enemy size >= 20
                         System.out.println("Nembak gan");
                         playerAction.action = PlayerActions.FIRETORPEDOES;
                         this.shootTorpedo = true;
@@ -287,12 +293,18 @@ public class BotService {
             while (idx < obstacleList.size() && getDistanceBetween(obstacleList.get(idx), this.bot) <= maxDistance){
                 var head = getHeadingBetween(obstacleList.get(idx));
                 if(head >= headingFirst && head <= headingLast){
-                    /*if(obstacleList.get(idx).getGameObjectType() == ObjectTypes.GAS_CLOUD){
-                        chooseToSkip = true;
-                        break;
-                    } else {*/
-                        score -= (5 / getDistanceBetween(this.bot, obstacleList.get(idx)));
+                    if(obstacleList.get(idx).getGameObjectType() == ObjectTypes.GAS_CLOUD){
+                        if(playerList.size() > 0 && getDistanceBetween(playerList.get(0), this.bot) > maxDistance){
+                            chooseToSkip = true;
+                            break;
+                        } else {
+                            score -= (obstacleList.get(idx).size / getDistanceBetween(this.bot, obstacleList.get(idx)));
+                            tempObstacleList.add(obstacleList.get(idx));
+                        }
+                    } else {
+                        score -= (obstacleList.get(idx).size / getDistanceBetween(this.bot, obstacleList.get(idx)));
                         tempObstacleList.add(obstacleList.get(idx));
+                    }
                 }
                 idx++;
             }
@@ -318,8 +330,16 @@ public class BotService {
     public boolean checkShieldCondition(List<GameObject> torpedoList){
         var count = 0;
         for(int i = 0; i < torpedoList.size(); i++){
-            if(Math.abs(getHeadingObject(torpedoList.get(i)) - torpedoList.get(i).currentHeading) <= 10){
+            if(Math.abs(getHeadingObject(torpedoList.get(i)) - torpedoList.get(i).currentHeading) <= 10 && getDistanceBetween(torpedoList.get(i), this.bot) < 200){
                 count++;
+                if(i + 1 < torpedoList.size()){
+                    for(int j = i + 1; j < torpedoList.size(); j++){
+                        if(Math.abs(getHeadingObject(torpedoList.get(j)) - torpedoList.get(j).currentHeading) <= 10 && getDistanceBetween(torpedoList.get(j), this.bot) < 200){
+                            count++;
+                        }
+                    }
+                }
+                break;
             }
         }
         if(count > 1 && this.bot.size > 40){
@@ -357,7 +377,7 @@ public class BotService {
                 musuhIncar = musuhList.get(i);
             }
         }
-        if(minDistance - this.bot.size - musuhIncar.size < 100 && musuhIncar.size < this.bot.size){
+        if(minDistance - this.bot.size - musuhIncar.size < 50 && musuhIncar.size < this.bot.size){
             return true;
         } else {
             return false;
