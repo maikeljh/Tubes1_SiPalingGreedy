@@ -13,6 +13,8 @@ public class BotService {
     private boolean shootTorpedo;
     private int headingTeleporter;
     private int shootTeleporter;
+    private boolean shieldActive;
+    private int tickShield;
 
     public BotService() {
         this.playerAction = new PlayerAction();
@@ -20,6 +22,8 @@ public class BotService {
         this.shootTorpedo = false;
         this.headingTeleporter = -999;
         this.shootTeleporter = 0;
+        this.shieldActive = false;
+        this.tickShield = -999;
     }
 
     public void setShootTorpedo(boolean shoot){
@@ -92,7 +96,13 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(obstacle -> getDistanceBetween(this.bot, obstacle)))
                     .collect(Collectors.toList());
-
+            // Getting torpedo list to activate shield
+            var torpedoList = this.gameState.getGameObjects()
+                    .stream()
+                    .filter(item -> item.getGameObjectType() == ObjectTypes.TORPEDO_SALVO)
+                    .sorted(Comparator
+                        .comparing(torpedo -> getDistanceBetween(this.bot, torpedo)))
+                    .collect(Collectors.toList());
             // Choosing best area
             var chosenArea = scanArea(foodList, playerList, obstacleList);
             foodList = chosenArea.get(0);
@@ -105,13 +115,25 @@ public class BotService {
                 myTeleporter = getTeleporter(teleportList);
             }
             
+            // Checking shield active or not
+            if(this.tickShield != -999 && this.gameState.getWorld().getCurrentTick() - this.tickShield >= 20){
+                this.tickShield = -999;
+                this.shieldActive = false;
+            }
+
             // If we can teleport now
             if(myTeleporter != null && musuhList.size() > 0 && doTeleport(myTeleporter, musuhList)){
                 playerAction.action = PlayerActions.TELEPORT;
                 this.headingTeleporter = -999;
                 this.shootTeleporter = 0;
                 System.out.println("Nguing");
-            } else if(this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
+            } else if(torpedoList.size() > 0 && checkShieldCondition(torpedoList) && !this.shieldActive){
+                playerAction.action = PlayerActions.ACTIVATESHIELD;
+                this.shieldActive = true;
+                this.tickShield = this.gameState.getWorld().getCurrentTick();
+                System.out.println("Aktifin Shield Gan");
+            }
+            else if(this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
                 var head = getHeadingBetween(musuhList.get(0));
                 playerAction.heading = head;
                 this.headingTeleporter = head;
@@ -293,6 +315,20 @@ public class BotService {
         return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList);
     }
 
+    public boolean checkShieldCondition(List<GameObject> torpedoList){
+        var count = 0;
+        for(int i = 0; i < torpedoList.size(); i++){
+            if(Math.abs(getHeadingObject(torpedoList.get(i)) - torpedoList.get(i).currentHeading) <= 10){
+                count++;
+            }
+        }
+        if(count > 1 && this.bot.size > 40){
+            return true;
+        } else {
+            return false;
+        }
+    }
+
     public boolean checkOwnerTeleporter(List<GameObject> teleportList){
         for(int i = 0; i < teleportList.size(); i++){
             if(Math.abs(teleportList.get(i).currentHeading - this.headingTeleporter) <= 3){
@@ -369,6 +405,12 @@ public class BotService {
     private int getHeadingBetween(GameObject otherObject) {
         var direction = toDegrees(Math.atan2(otherObject.getPosition().y - bot.getPosition().y,
                 otherObject.getPosition().x - bot.getPosition().x));
+        return (direction + 360) % 360;
+    }
+
+    private int getHeadingObject(GameObject otherObject) {
+        var direction = toDegrees(Math.atan2(bot.getPosition().y - otherObject.getPosition().y,
+                bot.getPosition().x - otherObject.getPosition().x));
         return (direction + 360) % 360;
     }
 
