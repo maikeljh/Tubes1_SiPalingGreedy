@@ -439,7 +439,7 @@ public class BotService {
             return false;
         } else {
             var supernova = supernovaList.get(0);
-            if(getDistanceBetween(supernova, this.bot) - this.bot.size <= 75){
+            if(getDistanceBetween(supernova, this.bot) - this.bot.size <= 100){
                 return false;
             } else {
                 var check = false;
