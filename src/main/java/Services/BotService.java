@@ -221,6 +221,16 @@ public class BotService {
                         playerAction.heading = getHeadingBetween(this.gameState.getWorld());
                         this.shootTorpedo = false;
                     }
+                } else {
+                    if(foodNotNearEdgeList.size() > 0){
+                        playerAction.heading = getHeadingBetween(foodNotNearEdgeList.get(0));
+                        System.out.println("Cari makan yang gak di ujung");
+                        this.shootTorpedo = false;
+                    } else {
+                        System.out.println("Ke tengah bang");
+                        playerAction.heading = getHeadingBetween(this.gameState.getWorld());
+                        this.shootTorpedo = false;
+                    }
                 }
             } else if(playerList.size() > 0 && playerList.get(0).size < this.bot.size){
                 // If there is a smaller enemy nearby
@@ -329,18 +339,20 @@ public class BotService {
             idx = 0;
             var chooseToSkip = false;
             while (idx < playerList.size() && getDistanceBetween(playerList.get(idx), this.bot) - playerList.get(idx).size - this.bot.size <= maxDistance){
-                var head = getHeadingBetween(playerList.get(idx));
-                double theta = (double) playerList.get(idx).size / getDistanceBetween(playerList.get(idx), this.bot);
-                theta = toDegrees(Math.asin(theta));
-                var headFirstEnemy = (head - theta) % 360;
-                var headLastEnemy = (head + theta) % 360;
-                if((headingFirst >= headFirstEnemy && headingFirst <= headLastEnemy) || (headingLast >= headFirstEnemy && headingLast <= headLastEnemy) || (head >= headingFirst && head <= headingLast)){
-                    if((double) playerList.get(idx).size * 6.0 / 5.0 <= this.bot.size){
-                        score += ((double) playerList.get(idx).size / getDistanceBetween(this.bot, playerList.get(idx)));
-                        tempPlayerList.add(playerList.get(idx));
-                    } else {
-                        chooseToSkip = true;
-                        break;
+                if(this.gameState.getWorld().radius - getDistanceBetween(playerList.get(idx), this.gameState.getWorld()) >= 20){
+                    var head = getHeadingBetween(playerList.get(idx));
+                    double theta = (double) playerList.get(idx).size / getDistanceBetween(playerList.get(idx), this.bot);
+                    theta = toDegrees(Math.asin(theta));
+                    var headFirstEnemy = (head - theta) % 360;
+                    var headLastEnemy = (head + theta) % 360;
+                    if((headingFirst >= headFirstEnemy && headingFirst <= headLastEnemy) || (headingLast >= headFirstEnemy && headingLast <= headLastEnemy) || (head >= headingFirst && head <= headingLast)){
+                        if((double) playerList.get(idx).size * 6.0 / 5.0 <= this.bot.size){
+                            score += ((double) playerList.get(idx).size / getDistanceBetween(this.bot, playerList.get(idx)));
+                            tempPlayerList.add(playerList.get(idx));
+                        } else {
+                            chooseToSkip = true;
+                            break;
+                        }
                     }
                 }
                 idx++;
@@ -445,11 +457,21 @@ public class BotService {
     public boolean checkShieldCondition(List<GameObject> torpedoList){
         var count = 0;
         for(int i = 0; i < torpedoList.size(); i++){
-            if(Math.abs(getHeadingObject(torpedoList.get(i)) - torpedoList.get(i).currentHeading) <= 10 && getDistanceBetween(torpedoList.get(i), this.bot) < 200){
+            var head = getHeadingObject(torpedoList.get(i));
+            double theta = (double) this.bot.size / getDistanceBetween(torpedoList.get(i), this.bot);
+            theta = toDegrees(Math.asin(theta));
+            var headFirstBot = (head - theta) % 360;
+            var headLastBot = (head + theta) % 360;
+            if(torpedoList.get(i).currentHeading >= headFirstBot && torpedoList.get(i).currentHeading <= headLastBot && getDistanceBetween(torpedoList.get(i), this.bot) < 200){
                 count++;
                 if(i + 1 < torpedoList.size()){
                     for(int j = i + 1; j < torpedoList.size(); j++){
-                        if(Math.abs(getHeadingObject(torpedoList.get(j)) - torpedoList.get(j).currentHeading) <= 10 && getDistanceBetween(torpedoList.get(j), torpedoList.get(i)) < 200){
+                        head = getHeadingObject(torpedoList.get(i));
+                        theta = (double) this.bot.size / getDistanceBetween(torpedoList.get(i), this.bot);
+                        theta = toDegrees(Math.asin(theta));
+                        headFirstBot = (head - theta) % 360;
+                        headLastBot = (head + theta) % 360;
+                        if(torpedoList.get(i).currentHeading >= headFirstBot && torpedoList.get(i).currentHeading <= headLastBot && getDistanceBetween(torpedoList.get(j), torpedoList.get(i)) < 200){
                             count++;
                         }
                     }
