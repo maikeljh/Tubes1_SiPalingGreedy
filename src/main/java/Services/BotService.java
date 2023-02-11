@@ -15,6 +15,7 @@ public class BotService {
     private int shootTeleporter;
     private boolean shieldActive;
     private int tickShield;
+    private boolean afterBurnerActive;
 
     public BotService() {
         this.playerAction = new PlayerAction();
@@ -24,6 +25,7 @@ public class BotService {
         this.shootTeleporter = 0;
         this.shieldActive = false;
         this.tickShield = -999;
+        this.afterBurnerActive = false;
     }
 
     public void setShootTorpedo(boolean shoot){
@@ -137,6 +139,16 @@ public class BotService {
                 this.shieldActive = true;
                 this.tickShield = this.gameState.getWorld().getCurrentTick();
                 System.out.println("Aktifin Shield Gan");
+            }
+            else if (musuhList.size() > 0 && !checkEnemyChase(musuhList) && this.afterBurnerActive) {
+                playerAction.action = PlayerActions.STOP_AFTERBURNER;
+                this.afterBurnerActive = false;
+                System.out.println("Stop afterburner gan");
+            }
+            else if (musuhList.size() > 0 && checkEnemyChase(musuhList) && !this.afterBurnerActive) {
+                playerAction.action = PlayerActions.START_AFTERBURNER;
+                this.afterBurnerActive = true;
+                System.out.println("Aktifin afterburner gan");
             }
             else if(this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
                 var head = getHeadingBetween(musuhList.get(0));
@@ -345,6 +357,22 @@ public class BotService {
         if(count > 1 && this.bot.size > 40){
             return true;
         } else {
+            return false;
+        }
+    }
+
+    public boolean checkEnemyChase(List <GameObject> musuhList) {
+        var count = 0;
+        for (int i = 0; i < musuhList.size(); i++) {
+            if(Math.abs(getHeadingObject(musuhList.get(i)) - musuhList.get(i).currentHeading) <= 10 && getDistanceBetween(musuhList.get(i), this.bot) < 100 && musuhList.get(i).size > this.bot.size) {
+                count++;
+            }
+        }
+        if (count >= 1 && this.bot.size > 50) {
+            System.out.println("True min");
+            return true;
+        }
+        else {
             return false;
         }
     }
