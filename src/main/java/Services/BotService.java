@@ -191,7 +191,7 @@ public class BotService {
                 this.afterBurnerActive = true;
                 System.out.println("Aktifin afterburner gan");
             }
-            else if(this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
+            else if(!this.shootSupernova && this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
                 var head = getHeadingBetween(musuhList.get(0));
                 playerAction.heading = head;
                 this.headingTeleporter = head;
@@ -204,8 +204,10 @@ public class BotService {
                     playerAction.heading = getHeadingBetween(musuhList.get(0));
                     var nabrak = false;
                     for(int x = 0; x < objectList.size(); x++){
-                        if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10){
+                        if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10 && getDistanceBetween(this.bot, objectList.get(x)) <= getDistanceBetween(this.bot, musuhList.get(0))){
                             nabrak = true;
+                            System.out.print("Duh nabrak gabisa nembak gan, ");
+                            break;
                         }
                     }
                     if(!nabrak && musuhList.get(0).size >= 10){
@@ -237,8 +239,10 @@ public class BotService {
                 playerAction.heading = getHeadingBetween(playerList.get(0));
                 var nabrak = false;
                 for(int x = 0; x < objectList.size(); x++){
-                    if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10){
+                    if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10 && getDistanceBetween(this.bot, objectList.get(x)) <= getDistanceBetween(this.bot, musuhList.get(0))){
                         nabrak = true;
+                        System.out.print("Duh nabrak gabisa nembak gan, ");
+                        break;
                     }
                 }
                 // If we can shoot the enemy without colliding with another game object and enemy size >= 15
@@ -392,16 +396,18 @@ public class BotService {
                 var head = getHeadingBetween(supernovaList.get(idx));
                 if(head >= headingFirst && head <= headingLast){
                     score += 10.0 / getDistanceBetween(this.bot, supernovaList.get(idx));
-                    var minDistanceSupernova = getDistanceBetween(supernovaList.get(idx), playerList.get(0));
-                    var idxSupernova = 0;
-                    for(int k = 1; k < playerList.size(); k++){
-                        var check = getDistanceBetween(supernovaList.get(idx), playerList.get(k));
-                        if(check < minDistanceSupernova){
-                            check = minDistanceSupernova;
-                            idxSupernova = k;
+                    if(playerList.size() > 0){
+                        var minDistanceSupernova = getDistanceBetween(supernovaList.get(idx), playerList.get(0));
+                        var idxSupernova = 0;
+                        for(int k = 1; k < playerList.size(); k++){
+                            var check = getDistanceBetween(supernovaList.get(idx), playerList.get(k));
+                            if(check < minDistanceSupernova){
+                                check = minDistanceSupernova;
+                                idxSupernova = k;
+                            }
                         }
+                        score -= 10.0 / getDistanceBetween(playerList.get(idxSupernova), supernovaList.get(idx));
                     }
-                    score -= 10.0 / getDistanceBetween(playerList.get(idxSupernova), supernovaList.get(idx));
                     tempSupernovaList.add(supernovaList.get(idx));
                 }
                 idx++;
@@ -439,7 +445,7 @@ public class BotService {
             return false;
         } else {
             var supernova = supernovaList.get(0);
-            if(getDistanceBetween(supernova, this.bot) - this.bot.size <= 100){
+            if(getDistanceBetween(supernova, this.bot) - this.bot.size <= 150){
                 return false;
             } else {
                 var check = false;
@@ -494,7 +500,7 @@ public class BotService {
             }
         }
         if (count >= 1 && this.bot.size >= 20) {
-            System.out.println("True min");
+            System.out.print("Ada yang ngejar min, ");
             return true;
         }
         else {
