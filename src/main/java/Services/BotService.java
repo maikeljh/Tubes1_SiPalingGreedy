@@ -114,16 +114,22 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(torpedo -> getDistanceBetween(this.bot, torpedo)))
                     .collect(Collectors.toList());
+            // Getting supernova list to get and shoot supernova
             var supernovaList = this.gameState.getGameObjects()
                     .stream()
                     .filter(item -> item.getGameObjectType() == ObjectTypes.SUPERNOVA_PICKUP)
                     .collect(Collectors.toList());
+            var supernovaBombList = this.gameState.getGameObjects()
+                    .stream()
+                    .filter(item -> item.getGameObjectType() == ObjectTypes.SUPERNOVA_BOMB)
+                    .collect(Collectors.toList());
 
             // Choosing best area
-            var chosenArea = scanArea(foodList, playerList, obstacleList);
+            var chosenArea = scanArea(foodList, playerList, obstacleList, supernovaList);
             foodList = chosenArea.get(0);
             playerList = chosenArea.get(1);
             obstacleList = chosenArea.get(2);
+            supernovaList = chosenArea.get(3);
 
             // Checking available teleport
             GameObject myTeleporter = null;
@@ -138,7 +144,7 @@ public class BotService {
             }
 
             // If we can teleport now
-            if(this.shootSupernova && checkDetonateSupernova(supernovaList, musuhList)){
+            if(this.shootSupernova && checkDetonateSupernova(supernovaBombList, musuhList)){
                 playerAction.action = PlayerActions.DETONATESUPERNOVA;
                 System.out.println("LEDAKIN GAN");
                 this.shootSupernova = false;
@@ -206,20 +212,15 @@ public class BotService {
                         System.out.println("Nembak gan");
                         playerAction.action = PlayerActions.FIRETORPEDOES;
                         this.shootTorpedo = true;
+                    } else if(foodNotNearEdgeList.size() > 0){
+                        playerAction.heading = getHeadingBetween(foodNotNearEdgeList.get(0));
+                        System.out.println("Cari makan yang gak di ujung");
+                        this.shootTorpedo = false;
                     } else {
                         System.out.println("Ke tengah bang");
                         playerAction.heading = getHeadingBetween(this.gameState.getWorld());
                         this.shootTorpedo = false;
                     }
-                } else {
-                    if(foodNotNearEdgeList.size() > 0){
-                        playerAction.heading = getHeadingBetween(foodNotNearEdgeList.get(0));
-                        System.out.println("Cari makan yang gak di ujung");
-                    } else {
-                        System.out.println("Ke tengah bang");
-                        playerAction.heading = getHeadingBetween(this.gameState.getWorld());
-                    }
-                    this.shootTorpedo = false;
                 }
             } else if(playerList.size() > 0 && playerList.get(0).size < this.bot.size){
                 // If there is a smaller enemy nearby
@@ -279,13 +280,15 @@ public class BotService {
         this.playerAction = playerAction;
     }
 
-    public List<List<GameObject>> scanArea(List<GameObject> foodList, List<GameObject> playerList, List<GameObject> obstacleList){
+    public List<List<GameObject>> scanArea(List<GameObject> foodList, List<GameObject> playerList, List<GameObject> obstacleList, List<GameObject> supernovaList){
         // Initialize area
         var area = 0;
         double maxScore = 0;
         List<GameObject> fixFoodList = new ArrayList<GameObject>();
         List<GameObject> fixPlayerList = new ArrayList<GameObject>();
         List<GameObject> fixObstacleList = new ArrayList<GameObject>();
+        List<GameObject> fixSupernovaList = new ArrayList<GameObject>();
+
         for(int i = 0; i < 12; i++){
             var headingFirst = i * 30;
             var headingLast = headingFirst + 30;
@@ -294,6 +297,8 @@ public class BotService {
             List<GameObject> tempFoodList = new ArrayList<GameObject>();
             List<GameObject> tempPlayerList = new ArrayList<GameObject>();
             List<GameObject> tempObstacleList = new ArrayList<GameObject>();
+            List<GameObject> tempSupernovaList = new ArrayList<GameObject>();
+
             // Iterate Food List
             var idx = 0;
             while (idx < foodList.size() && getDistanceBetween(foodList.get(idx), this.bot) <= maxDistance){
@@ -301,9 +306,19 @@ public class BotService {
                 if(head >= headingFirst && head <= headingLast){
                     if(this.gameState.getWorld().radius - getDistanceBetween(foodList.get(idx), this.gameState.getWorld()) >= sizeUntukEdge(this.gameState.getWorld().radius, this.bot.size)){
                         if(foodList.get(idx).getGameObjectType() == ObjectTypes.FOOD){
-                            score += (3.0 / getDistanceBetween(this.bot, foodList.get(idx))) + (3.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
+                            score += (3.0 / (getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) + (3.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld())));
+                            for (int j = 0; j < playerList.size() ; j++) {
+                                if (playerList.get(j).size > this.bot.size && getDistanceBetween(this.bot, playerList.get(j)) - this.bot.size - playerList.get(j).size <= 50 && getDistanceBetween(foodList.get(idx), playerList.get(j)) - playerList.get(j).size > getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) {
+                                    score -= (3.0 / (getDistanceBetween(foodList.get(idx), playerList.get(j)) - playerList.get(j).size));
+                                }
+                            }
                         } else {
-                        score += (6.0 / getDistanceBetween(this.bot, foodList.get(idx))) + (6.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld()));
+                            score += (6.0 / (getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) + (6.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld())));
+                            for (int j = 0; j < playerList.size() ; j++) {
+                                if (playerList.get(j).size > this.bot.size && getDistanceBetween(this.bot, playerList.get(j)) - this.bot.size - playerList.get(j).size <= 50 && getDistanceBetween(foodList.get(idx), playerList.get(j)) - playerList.get(j).size > getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) {
+                                    score -= (6.0 / (getDistanceBetween(foodList.get(idx), playerList.get(j)) - playerList.get(j).size));
+                                }
+                            }
                         }
                         tempFoodList.add(foodList.get(idx));
                     }
@@ -341,7 +356,7 @@ public class BotService {
                 var head = getHeadingBetween(obstacleList.get(idx));
                 if(head >= headingFirst && head <= headingLast){
                     if(obstacleList.get(idx).getGameObjectType() == ObjectTypes.GAS_CLOUD){
-                        if(playerList.size() > 0 && getDistanceBetween(playerList.get(0), this.bot) > maxDistance){
+                        if(playerList.size() > 0 && getDistanceBetween(playerList.get(0), this.bot) > maxDistance && getDistanceBetween(obstacleList.get(idx), this.bot) - this.bot.size <= 75){
                             chooseToSkip = true;
                             break;
                         } else {
@@ -359,6 +374,27 @@ public class BotService {
                 break;
             }
 
+            // Iterate Supernova List
+            idx = 0;
+            while (idx < supernovaList.size() && getDistanceBetween(supernovaList.get(idx), this.bot) <= maxDistance){
+                var head = getHeadingBetween(supernovaList.get(idx));
+                if(head >= headingFirst && head <= headingLast){
+                    score += 10.0 / getDistanceBetween(this.bot, supernovaList.get(idx));
+                    var minDistanceSupernova = getDistanceBetween(supernovaList.get(idx), playerList.get(0));
+                    var idxSupernova = 0;
+                    for(int k = 1; k < playerList.size(); k++){
+                        var check = getDistanceBetween(supernovaList.get(idx), playerList.get(k));
+                        if(check < minDistanceSupernova){
+                            check = minDistanceSupernova;
+                            idxSupernova = k;
+                        }
+                    }
+                    score -= 10.0 / getDistanceBetween(playerList.get(idxSupernova), supernovaList.get(idx));
+                    tempSupernovaList.add(supernovaList.get(idx));
+                }
+                idx++;
+            }
+
             // Choose area
             if(score > maxScore){
                 maxScore = score;
@@ -366,12 +402,13 @@ public class BotService {
                 fixFoodList = tempFoodList;
                 fixPlayerList = tempPlayerList;
                 fixObstacleList = tempObstacleList;
+                fixSupernovaList = tempSupernovaList;
             }
         }
         /*System.out.print(this.gameState.getWorld().currentTick);
         System.out.print(" : ");
         System.out.println(maxScore);*/
-        return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList);
+        return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList, fixSupernovaList);
     }
 
     public boolean checkFireSupernova(List<GameObject> musuhList){
@@ -390,13 +427,12 @@ public class BotService {
             return false;
         } else {
             var supernova = supernovaList.get(0);
-            if(getDistanceBetween(this.bot, supernova) <= 300){
+            if(getDistanceBetween(supernova, this.bot) - this.bot.size <= 75){
                 return false;
             } else {
                 var check = false;
-                
                 for(int i = 0; i < musuhList.size(); i++){
-                    if(getDistanceBetween(musuhList.get(i), supernova) <= 300){
+                    if(getDistanceBetween(musuhList.get(i), supernova) <= 100){
                         check = true;
                         break;
                     }
@@ -413,7 +449,7 @@ public class BotService {
                 count++;
                 if(i + 1 < torpedoList.size()){
                     for(int j = i + 1; j < torpedoList.size(); j++){
-                        if(Math.abs(getHeadingObject(torpedoList.get(j)) - torpedoList.get(j).currentHeading) <= 10 && getDistanceBetween(torpedoList.get(j), this.bot) < 200){
+                        if(Math.abs(getHeadingObject(torpedoList.get(j)) - torpedoList.get(j).currentHeading) <= 10 && getDistanceBetween(torpedoList.get(j), torpedoList.get(i)) < 200){
                             count++;
                         }
                     }
