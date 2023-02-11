@@ -148,7 +148,7 @@ public class BotService {
                 playerAction.action = PlayerActions.DETONATESUPERNOVA;
                 System.out.println("LEDAKIN GAN");
                 this.shootSupernova = false;
-            } else if(this.bot.supernovaAvailable > 0 && checkFireSupernova(musuhList)){
+            } else if(this.bot.supernovaAvailable > 0 && checkFireSupernova(musuhList) && !this.shootSupernova){
                 playerAction.action = PlayerActions.FIRESUPERNOVA;
                 var musuhGedeList = this.gameState.getPlayerGameObjects()
                     .stream()
@@ -466,12 +466,12 @@ public class BotService {
                 count++;
                 if(i + 1 < torpedoList.size()){
                     for(int j = i + 1; j < torpedoList.size(); j++){
-                        head = getHeadingObject(torpedoList.get(i));
-                        theta = (double) this.bot.size / getDistanceBetween(torpedoList.get(i), this.bot);
+                        head = getHeadingObject(torpedoList.get(j));
+                        theta = (double) this.bot.size / getDistanceBetween(torpedoList.get(j), this.bot);
                         theta = toDegrees(Math.asin(theta));
                         headFirstBot = (head - theta) % 360;
                         headLastBot = (head + theta) % 360;
-                        if(torpedoList.get(i).currentHeading >= headFirstBot && torpedoList.get(i).currentHeading <= headLastBot && getDistanceBetween(torpedoList.get(j), torpedoList.get(i)) < 200){
+                        if(torpedoList.get(j).currentHeading >= headFirstBot && torpedoList.get(j).currentHeading <= headLastBot && getDistanceBetween(torpedoList.get(j), torpedoList.get(i)) < 200){
                             count++;
                         }
                     }
