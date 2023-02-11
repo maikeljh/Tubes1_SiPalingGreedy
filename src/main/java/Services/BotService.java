@@ -16,6 +16,7 @@ public class BotService {
     private boolean shieldActive;
     private int tickShield;
     private boolean afterBurnerActive;
+    private boolean shootSupernova;
 
     public BotService() {
         this.playerAction = new PlayerAction();
@@ -26,6 +27,7 @@ public class BotService {
         this.shieldActive = false;
         this.tickShield = -999;
         this.afterBurnerActive = false;
+        this.shootSupernova = false;
     }
 
     public void setShootTorpedo(boolean shoot){
@@ -54,8 +56,10 @@ public class BotService {
 
     public void computeNextPlayerAction(PlayerAction playerAction) {
         // Output Current Tick
-        System.out.print(this.gameState.getWorld().getCurrentTick());
-        System.out.print(": ");
+        if(this.gameState.getWorld().getCurrentTick() != null){
+            System.out.print(this.gameState.getWorld().getCurrentTick());
+            System.out.print(": ");
+        }
         // Initialize action and heading
         playerAction.action = PlayerActions.FORWARD;
         playerAction.heading = new Random().nextInt(360);
@@ -110,6 +114,11 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(torpedo -> getDistanceBetween(this.bot, torpedo)))
                     .collect(Collectors.toList());
+            var supernovaList = this.gameState.getGameObjects()
+                    .stream()
+                    .filter(item -> item.getGameObjectType() == ObjectTypes.SUPERNOVA_PICKUP)
+                    .collect(Collectors.toList());
+
             // Choosing best area
             var chosenArea = scanArea(foodList, playerList, obstacleList);
             foodList = chosenArea.get(0);
@@ -129,7 +138,33 @@ public class BotService {
             }
 
             // If we can teleport now
-            if(myTeleporter != null && musuhList.size() > 0 && doTeleport(myTeleporter, musuhList)){
+            if(this.shootSupernova && checkDetonateSupernova(supernovaList, musuhList)){
+                playerAction.action = PlayerActions.DETONATESUPERNOVA;
+                System.out.println("LEDAKIN GAN");
+                this.shootSupernova = false;
+            } else if(this.bot.supernovaAvailable > 0 && checkFireSupernova(musuhList)){
+                playerAction.action = PlayerActions.FIRESUPERNOVA;
+                var musuhGedeList = this.gameState.getPlayerGameObjects()
+                    .stream()
+                    .filter(enemy -> enemy.id != this.bot.id)
+                    .sorted(Comparator
+                        .comparing(enemy -> enemy.size))
+                    .collect(Collectors.toList());
+                for(int i = musuhGedeList.size() - 1; i >= 0; i--){
+                    if(getDistanceBetween(this.bot, musuhGedeList.get(i)) >= 300){
+                        playerAction.heading = getHeadingBetween(musuhGedeList.get(i));
+                        break;
+                    }
+                }
+                System.out.println("TEMBAKKK");
+                this.shootSupernova = true;
+            } else if(supernovaList.size() > 0){
+                playerAction.heading = getHeadingBetween(supernovaList.get(0));
+                System.out.println("Kejer Supernova");
+                if(getDistanceBetween(this.bot, supernovaList.get(0)) < 30){
+                    System.out.println("Deket Supernova Bang");
+                }
+            } else if(myTeleporter != null && musuhList.size() > 0 && doTeleport(myTeleporter, musuhList)){
                 playerAction.action = PlayerActions.TELEPORT;
                 this.headingTeleporter = -999;
                 this.shootTeleporter = 0;
@@ -141,12 +176,12 @@ public class BotService {
                 System.out.println("Aktifin Shield Gan");
             }
             else if (musuhList.size() > 0 && !checkEnemyChase(musuhList) && this.afterBurnerActive) {
-                playerAction.action = PlayerActions.STOP_AFTERBURNER;
+                playerAction.action = PlayerActions.STOPAFTERBURNER;
                 this.afterBurnerActive = false;
                 System.out.println("Stop afterburner gan");
             }
             else if (musuhList.size() > 0 && checkEnemyChase(musuhList) && !this.afterBurnerActive) {
-                playerAction.action = PlayerActions.START_AFTERBURNER;
+                playerAction.action = PlayerActions.STARTAFTERBURNER;
                 this.afterBurnerActive = true;
                 System.out.println("Aktifin afterburner gan");
             }
@@ -339,6 +374,38 @@ public class BotService {
         return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList);
     }
 
+    public boolean checkFireSupernova(List<GameObject> musuhList){
+        var check = false;     
+        for(int i = 0; i < musuhList.size(); i++){
+            if(getDistanceBetween(musuhList.get(i), this.bot) >= 300){
+                check = true;
+                break;
+            }
+        }
+        return check;
+    }
+
+    public boolean checkDetonateSupernova(List<GameObject> supernovaList, List<GameObject> musuhList){
+        if(supernovaList.size() == 0){
+            return false;
+        } else {
+            var supernova = supernovaList.get(0);
+            if(getDistanceBetween(this.bot, supernova) <= 300){
+                return false;
+            } else {
+                var check = false;
+                
+                for(int i = 0; i < musuhList.size(); i++){
+                    if(getDistanceBetween(musuhList.get(i), supernova) <= 300){
+                        check = true;
+                        break;
+                    }
+                }
+                return check;
+            }
+        }
+    }
+
     public boolean checkShieldCondition(List<GameObject> torpedoList){
         var count = 0;
         for(int i = 0; i < torpedoList.size(); i++){
@@ -364,11 +431,11 @@ public class BotService {
     public boolean checkEnemyChase(List <GameObject> musuhList) {
         var count = 0;
         for (int i = 0; i < musuhList.size(); i++) {
-            if(Math.abs(getHeadingObject(musuhList.get(i)) - musuhList.get(i).currentHeading) <= 10 && getDistanceBetween(musuhList.get(i), this.bot) < 100 && musuhList.get(i).size > this.bot.size) {
+            if(Math.abs(getHeadingObject(musuhList.get(i)) - musuhList.get(i).currentHeading) <= 10 && getDistanceBetween(musuhList.get(i), this.bot) < 200 && musuhList.get(i).size > this.bot.size) {
                 count++;
             }
         }
-        if (count >= 1 && this.bot.size > 50) {
+        if (count >= 1 && this.bot.size >= 20) {
             System.out.println("True min");
             return true;
         }
