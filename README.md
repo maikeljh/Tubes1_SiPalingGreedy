@@ -7,6 +7,7 @@
 - [Spesifikasi dan Panduan](#spesifikasi-dan-panduan)
 - [Build and Compile Program](#build-and-compile-program)
 - [Anggota Kelompok](#anggota-kelompok)
+- [Contoh Tampilan Galaxio](#contoh-tampilan-galaxio)
 
 ## Deskripsi Singkat Galaxio
 Galaxio merupakan suatu permainan pertandingan antar bot kapal pemainnya yang berlatar belakang di luar angkasa. 
@@ -105,3 +106,12 @@ masukkan command ```java -jar <path_file_jar>``` untuk meregistrasikan bot SiPal
 | 13521059  | Arleen Chrysantha Gunardi |
 | 13521124  | Michael Jonathan Halim    |
 | 13521127  | Marcel Ryan Antony        |
+
+## Contoh Tampilan Galaxio
+![Screenshot_2587](https://user-images.githubusercontent.com/87570374/219684704-a32b7ec0-0aa4-4d0a-a3c3-6017e1e1ff32.png)
+<b>Tampilan Utama<b>
+
+![Screenshot_2588](https://user-images.githubusercontent.com/87570374/219684777-1644c549-13b6-46f9-b236-445ad94f9691.png)
+<b>Tampilan Permainan<b>
+
+
