@@ -10,13 +10,13 @@ public class BotService {
     private GameObject bot;
     private PlayerAction playerAction;
     private GameState gameState;
-    private boolean shootTorpedo;
-    private int headingTeleporter;
-    private int shootTeleporter;
-    private boolean shieldActive;
-    private int tickShield;
-    private boolean afterBurnerActive;
-    private boolean shootSupernova;
+    private boolean shootTorpedo; // Indicates bot shooted torpedo
+    private int headingTeleporter; // Saving our heading teleporter
+    private int shootTeleporter; // Indicates bot shooted teleporter
+    private boolean shieldActive; // Indicates shield is active or not
+    private int tickShield; // Counting tick for duration of shield
+    private boolean afterBurnerActive; // Indicates afterburner is active or not
+    private boolean shootSupernova; // Indicates bot shooted supernova
 
     public BotService() {
         this.playerAction = new PlayerAction();
@@ -60,20 +60,24 @@ public class BotService {
             System.out.print(this.gameState.getWorld().getCurrentTick());
             System.out.print(": ");
         }
+
         // Initialize action and heading
         playerAction.action = PlayerActions.FORWARD;
         playerAction.heading = new Random().nextInt(360);
+
         // While game objects not empty
         if (!this.gameState.getGameObjects().isEmpty()) {
             // Getting object list
             var objectList = this.gameState.getGameObjects();
+
             // Getting food list
             var foodList = this.gameState.getGameObjects()
                     .stream().filter(item -> item.getGameObjectType() == ObjectTypes.FOOD || item.getGameObjectType() == ObjectTypes.SUPERFOOD)
                     .sorted(Comparator
                         .comparing(item -> getDistanceBetween(this.bot, item)))
                     .collect(Collectors.toList());
-            // Getting food list
+
+            // Getting food not near edge list
             var foodNotNearEdgeList = this.gameState.getGameObjects()
                     .stream()
                     .filter(item -> (item.getGameObjectType() == ObjectTypes.FOOD || item.getGameObjectType() == ObjectTypes.SUPERFOOD) && 
@@ -81,6 +85,7 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(item -> getDistanceBetween(this.bot, item)))
                     .collect(Collectors.toList());
+
             // Getting player list
             var playerList = this.gameState.getPlayerGameObjects()
                     .stream()
@@ -88,6 +93,7 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(enemy -> getDistanceBetween(this.bot, enemy)))
                     .collect(Collectors.toList());
+
             // Getting enemy list to shoot
             var musuhList = this.gameState.getPlayerGameObjects()
                     .stream()
@@ -95,11 +101,13 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(enemy -> getDistanceBetween(this.bot, enemy)))
                     .collect(Collectors.toList());
-            // Getting teleport list to avoid
+
+            // Getting teleporter list
             var teleportList = this.gameState.getGameObjects()
                     .stream()
                     .filter(item -> item.getGameObjectType() == ObjectTypes.TELEPORTER)
                     .collect(Collectors.toList());
+
             // Getting obstacle list to avoid
             var obstacleList = this.gameState.getGameObjects()
                     .stream()
@@ -107,6 +115,7 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(obstacle -> getDistanceBetween(this.bot, obstacle)))
                     .collect(Collectors.toList());
+
             // Getting torpedo list to activate shield
             var torpedoList = this.gameState.getGameObjects()
                     .stream()
@@ -114,11 +123,14 @@ public class BotService {
                     .sorted(Comparator
                         .comparing(torpedo -> getDistanceBetween(this.bot, torpedo)))
                     .collect(Collectors.toList());
+
             // Getting supernova list to get and shoot supernova
             var supernovaList = this.gameState.getGameObjects()
                     .stream()
                     .filter(item -> item.getGameObjectType() == ObjectTypes.SUPERNOVA_PICKUP)
                     .collect(Collectors.toList());
+            
+            // Getting supernova bomb list to detonate supernova
             var supernovaBombList = this.gameState.getGameObjects()
                     .stream()
                     .filter(item -> item.getGameObjectType() == ObjectTypes.SUPERNOVA_BOMB)
@@ -143,12 +155,13 @@ public class BotService {
                 this.shieldActive = false;
             }
 
-            // If we can teleport now
+            // If we can detonate supernova
             if(this.shootSupernova && checkDetonateSupernova(supernovaBombList, musuhList)){
                 playerAction.action = PlayerActions.DETONATESUPERNOVA;
                 System.out.println("LEDAKIN GAN");
                 this.shootSupernova = false;
             } else if(this.bot.supernovaAvailable > 0 && checkFireSupernova(musuhList) && !this.shootSupernova){
+                // If we can shoot supernova
                 playerAction.action = PlayerActions.FIRESUPERNOVA;
                 var musuhGedeList = this.gameState.getPlayerGameObjects()
                     .stream()
@@ -165,33 +178,39 @@ public class BotService {
                 System.out.println("TEMBAKKK");
                 this.shootSupernova = true;
             } else if(supernovaList.size() > 0){
+                // If we can chase supernova
                 playerAction.heading = getHeadingBetween(supernovaList.get(0));
                 System.out.println("Kejer Supernova");
                 if(getDistanceBetween(this.bot, supernovaList.get(0)) < 30){
                     System.out.println("Deket Supernova Bang");
                 }
             } else if(myTeleporter != null && musuhList.size() > 0 && doTeleport(myTeleporter, musuhList)){
+                // If we can teleport now
                 playerAction.action = PlayerActions.TELEPORT;
                 this.headingTeleporter = -999;
                 this.shootTeleporter = 0;
                 System.out.println("Nguing");
             } else if(torpedoList.size() > 0 && checkShieldCondition(torpedoList) && !this.shieldActive){
+                // If we have to activate shield
                 playerAction.action = PlayerActions.ACTIVATESHIELD;
                 this.shieldActive = true;
                 this.tickShield = this.gameState.getWorld().getCurrentTick();
                 System.out.println("Aktifin Shield Gan");
             }
             else if (musuhList.size() > 0 && !checkEnemyChase(musuhList) && this.afterBurnerActive) {
+                // If we can stop afterburner
                 playerAction.action = PlayerActions.STOPAFTERBURNER;
                 this.afterBurnerActive = false;
                 System.out.println("Stop afterburner gan");
             }
             else if (musuhList.size() > 0 && checkEnemyChase(musuhList) && !this.afterBurnerActive) {
+                // If we can start afterburner
                 playerAction.action = PlayerActions.STARTAFTERBURNER;
                 this.afterBurnerActive = true;
                 System.out.println("Aktifin afterburner gan");
             }
-            else if(!this.shootSupernova && this.shootTeleporter == 0 && musuhList.size() > 0 && getDistanceBetween(this.bot, musuhList.get(0)) >= 100 && getDistanceBetween(this.bot, musuhList.get(0)) < 400 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
+            else if(!this.shootSupernova && this.shootTeleporter == 0 && musuhList.size() > 0 && this.bot.teleporterCount > 0 && this.headingTeleporter == -999 && this.bot.size > 60 && this.bot.size - 40 >= musuhList.get(0).size && musuhList.get(0).size >= 30){
+                // If we can shoot teleporter to enemy
                 var head = getHeadingBetween(musuhList.get(0));
                 playerAction.heading = head;
                 this.headingTeleporter = head;
@@ -199,9 +218,10 @@ public class BotService {
                 this.shootTeleporter = 2;
                 System.out.println("Tembak Teleport Gan");
             } else if(foodList.size() == 0 && playerList.size() == 0){
-                // If there is no food and enemy nearby
+                // If there is no food and enemy within area
                 if(!this.shootTorpedo && musuhList.size() > 0 && getDistanceBetween(musuhList.get(0), this.bot) - musuhList.get(0).size - this.bot.size <= this.bot.size + 150){
                     playerAction.heading = getHeadingBetween(musuhList.get(0));
+                    // Checking if we can shoot enemy or not
                     var nabrak = false;
                     for(int x = 0; x < objectList.size(); x++){
                         if(Math.abs(playerAction.heading - getHeadingBetween(objectList.get(x))) <= 10 && getDistanceBetween(this.bot, objectList.get(x)) <= getDistanceBetween(this.bot, musuhList.get(0))){
@@ -215,10 +235,12 @@ public class BotService {
                         playerAction.action = PlayerActions.FIRETORPEDOES;
                         this.shootTorpedo = true;
                     } else if(foodNotNearEdgeList.size() > 0){
+                        // Chase food not near edge
                         playerAction.heading = getHeadingBetween(foodNotNearEdgeList.get(0));
                         System.out.println("Cari makan yang gak di ujung");
                         this.shootTorpedo = false;
                     } else {
+                        // Heading center
                         System.out.println("Ke tengah bang");
                         playerAction.heading = getHeadingBetween(this.gameState.getWorld());
                         this.shootTorpedo = false;
@@ -295,7 +317,7 @@ public class BotService {
     }
 
     public List<List<GameObject>> scanArea(List<GameObject> foodList, List<GameObject> playerList, List<GameObject> obstacleList, List<GameObject> supernovaList){
-        // Initialize area
+        // Initialize area, max score, and list objects
         var area = 0;
         double maxScore = 0;
         List<GameObject> fixFoodList = new ArrayList<GameObject>();
@@ -303,10 +325,14 @@ public class BotService {
         List<GameObject> fixObstacleList = new ArrayList<GameObject>();
         List<GameObject> fixSupernovaList = new ArrayList<GameObject>();
 
+        // Iterate area per 30 degrees
         for(int i = 0; i < 12; i++){
+            // Setting heading limit for each area
             var headingFirst = i * 30;
             var headingLast = headingFirst + 30;
+            // Setting max distance for area
             var maxDistance = 250;
+            // Initializing temporary score and object list
             double score = 0;
             List<GameObject> tempFoodList = new ArrayList<GameObject>();
             List<GameObject> tempPlayerList = new ArrayList<GameObject>();
@@ -320,6 +346,7 @@ public class BotService {
                 if(head >= headingFirst && head <= headingLast){
                     if(this.gameState.getWorld().radius - getDistanceBetween(foodList.get(idx), this.gameState.getWorld()) >= sizeUntukEdge(this.gameState.getWorld().radius, this.bot.size)){
                         if(foodList.get(idx).getGameObjectType() == ObjectTypes.FOOD){
+                            // Scoring for each valid food
                             score += (3.0 / (getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) + (3.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld())));
                             for (int j = 0; j < playerList.size() ; j++) {
                                 if (playerList.get(j).size > this.bot.size && getDistanceBetween(this.bot, playerList.get(j)) - this.bot.size - playerList.get(j).size <= 50 && getDistanceBetween(foodList.get(idx), playerList.get(j)) - playerList.get(j).size > getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) {
@@ -327,6 +354,7 @@ public class BotService {
                                 }
                             }
                         } else {
+                            // Scoring for each valid superfood
                             score += (6.0 / (getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) + (6.0 / getDistanceBetween(foodList.get(idx), this.gameState.getWorld())));
                             for (int j = 0; j < playerList.size() ; j++) {
                                 if (playerList.get(j).size > this.bot.size && getDistanceBetween(this.bot, playerList.get(j)) - this.bot.size - playerList.get(j).size <= 50 && getDistanceBetween(foodList.get(idx), playerList.get(j)) - playerList.get(j).size > getDistanceBetween(this.bot, foodList.get(idx)) - this.bot.size) {
@@ -343,6 +371,7 @@ public class BotService {
             idx = 0;
             var chooseToSkip = false;
             while (idx < playerList.size() && getDistanceBetween(playerList.get(idx), this.bot) - playerList.get(idx).size - this.bot.size <= maxDistance){
+                // Scoring for each valid player with trigonometry
                 if(this.gameState.getWorld().radius - getDistanceBetween(playerList.get(idx), this.gameState.getWorld()) >= 20){
                     var head = getHeadingBetween(playerList.get(idx));
                     double theta = (double) playerList.get(idx).size / getDistanceBetween(playerList.get(idx), this.bot);
@@ -371,7 +400,9 @@ public class BotService {
             while (idx < obstacleList.size() && getDistanceBetween(obstacleList.get(idx), this.bot) <= maxDistance){
                 var head = getHeadingBetween(obstacleList.get(idx));
                 if(head >= headingFirst && head <= headingLast){
+                    // Scoring for each valid obstacle
                     if(obstacleList.get(idx).getGameObjectType() == ObjectTypes.GAS_CLOUD){
+                        // Skip area if it contains gas cloud and enemy is not nearby
                         if(playerList.size() > 0 && getDistanceBetween(playerList.get(0), this.bot) > maxDistance && getDistanceBetween(obstacleList.get(idx), this.bot) - this.bot.size <= 75){
                             chooseToSkip = true;
                             break;
@@ -394,6 +425,7 @@ public class BotService {
             idx = 0;
             while (idx < supernovaList.size() && getDistanceBetween(supernovaList.get(idx), this.bot) <= maxDistance){
                 var head = getHeadingBetween(supernovaList.get(idx));
+                // Scoring for supernova
                 if(head >= headingFirst && head <= headingLast){
                     score += 10.0 / getDistanceBetween(this.bot, supernovaList.get(idx));
                     if(playerList.size() > 0){
@@ -413,7 +445,7 @@ public class BotService {
                 idx++;
             }
 
-            // Choose area
+            // Choosing area
             if(score > maxScore){
                 maxScore = score;
                 area = i;
@@ -423,13 +455,11 @@ public class BotService {
                 fixSupernovaList = tempSupernovaList;
             }
         }
-        /*System.out.print(this.gameState.getWorld().currentTick);
-        System.out.print(" : ");
-        System.out.println(maxScore);*/
         return Arrays.asList(fixFoodList, fixPlayerList, fixObstacleList, fixSupernovaList);
     }
 
     public boolean checkFireSupernova(List<GameObject> musuhList){
+        // Function to check if we can fire supernova or not
         var check = false;     
         for(int i = 0; i < musuhList.size(); i++){
             if(getDistanceBetween(musuhList.get(i), this.bot) >= 300){
@@ -441,6 +471,7 @@ public class BotService {
     }
 
     public boolean checkDetonateSupernova(List<GameObject> supernovaList, List<GameObject> musuhList){
+        // Function to check if we can detonate supernova now or not
         if(supernovaList.size() == 0){
             return false;
         } else {
@@ -461,6 +492,7 @@ public class BotService {
     }
 
     public boolean checkShieldCondition(List<GameObject> torpedoList){
+        // Function to check if we need to use shield or not
         var count = 0;
         for(int i = 0; i < torpedoList.size(); i++){
             var head = getHeadingObject(torpedoList.get(i));
@@ -493,6 +525,7 @@ public class BotService {
     }
 
     public boolean checkEnemyChase(List <GameObject> musuhList) {
+        // Function to check if we are being chased by an enemy or not
         var count = 0;
         for (int i = 0; i < musuhList.size(); i++) {
             if(Math.abs(getHeadingObject(musuhList.get(i)) - musuhList.get(i).currentHeading) <= 10 && getDistanceBetween(musuhList.get(i), this.bot) < 200 && musuhList.get(i).size > this.bot.size) {
@@ -509,6 +542,7 @@ public class BotService {
     }
 
     public boolean checkOwnerTeleporter(List<GameObject> teleportList){
+        // Function to check owner teleporter
         for(int i = 0; i < teleportList.size(); i++){
             if(Math.abs(teleportList.get(i).currentHeading - this.headingTeleporter) <= 3){
                 return true;
@@ -518,6 +552,7 @@ public class BotService {
     }
 
     public GameObject getTeleporter(List<GameObject> teleportList){
+        // Function to get our teleporter
         for(int i = 0; i < teleportList.size(); i++){
             if(Math.abs(teleportList.get(i).currentHeading - this.headingTeleporter) <= 3){
                 return teleportList.get(i);
@@ -527,6 +562,7 @@ public class BotService {
     }
 
     public boolean doTeleport(GameObject myTeleport, List<GameObject> musuhList){
+        // Function to check if we can teleport now or not
         var minDistance = getDistanceBetween(myTeleport, musuhList.get(0));
         GameObject musuhIncar = musuhList.get(0);
         for(int i = 1; i < musuhList.size(); i++){
@@ -536,7 +572,7 @@ public class BotService {
                 musuhIncar = musuhList.get(i);
             }
         }
-        if(minDistance - this.bot.size - musuhIncar.size < 50 && musuhIncar.size < this.bot.size){
+        if(minDistance - this.bot.size - musuhIncar.size <= 0 && musuhIncar.size + 20 < this.bot.size){
             return true;
         } else {
             return false;
@@ -544,6 +580,7 @@ public class BotService {
     }
 
     public double sizeUntukEdge (int radius, int size) {
+        // Function to constraint bot movement from edge
         if (size <= 0.25 * radius) {
             return 1.7 * (double) size;
         }
@@ -565,41 +602,48 @@ public class BotService {
     }
 
     private void updateSelfState() {
+        // Function to update bot state
         Optional<GameObject> optionalBot = gameState.getPlayerGameObjects().stream().filter(gameObject -> gameObject.id.equals(bot.id)).findAny();
         optionalBot.ifPresent(bot -> this.bot = bot);
     }
 
     private double getDistanceBetween(GameObject object1, GameObject object2) {
+        // Function to get distance between two object
         var triangleX = Math.abs(object1.getPosition().x - object2.getPosition().x);
         var triangleY = Math.abs(object1.getPosition().y - object2.getPosition().y);
         return Math.sqrt(triangleX * triangleX + triangleY * triangleY);
     }
 
     private double getDistanceBetween(GameObject object1, World world) {
+        // Function to get distance between an object and world center
         var triangleX = Math.abs(object1.getPosition().x - world.getCenterPoint().x);
         var triangleY = Math.abs(object1.getPosition().y - world.getCenterPoint().y);
         return Math.sqrt(triangleX * triangleX + triangleY * triangleY);
     }
 
     private int getHeadingBetween(GameObject otherObject) {
+        // Function to get heading from bot to object
         var direction = toDegrees(Math.atan2(otherObject.getPosition().y - bot.getPosition().y,
                 otherObject.getPosition().x - bot.getPosition().x));
         return (direction + 360) % 360;
     }
 
     private int getHeadingObject(GameObject otherObject) {
+        // Function to get heading from object to bot
         var direction = toDegrees(Math.atan2(bot.getPosition().y - otherObject.getPosition().y,
                 bot.getPosition().x - otherObject.getPosition().x));
         return (direction + 360) % 360;
     }
 
     private int getHeadingBetween(World world) {
+        // Function to get heading from bot to world
         var direction = toDegrees(Math.atan2(world.getCenterPoint().y - bot.getPosition().y,
                 world.getCenterPoint().x - bot.getPosition().x));
         return (direction + 360) % 360;
     }
 
     private int toDegrees(double v) {
+        // Function to calculate degrees from radian
         return (int) (v * (180 / Math.PI));
     }
 
